@@ -15,6 +15,7 @@ START_NOISE_WAIT = 0
 START_DURATION = START_NOISE_WAIT + INTRO_MUSIC_DURATION
 STAGE_BADGE_DURATION = 200
 FIRE_COOLDOWN = 200
+GAME_OVER_DURATION = 3000
 
 # game area boundary
 STAGE_BOUNDS = pygame.Rect(0, c.STAGE_TOP_Y, c.GAME_SIZE.width, c.STAGE_BOTTOM_Y - c.STAGE_TOP_Y)
@@ -95,12 +96,9 @@ class Play(State):
     def get_event(self, event):
         if event.type == pygame.KEYDOWN:
             keypress = event.key
-            if keypress == pygame.K_SPACE and self.is_player_alive and self.can_control_player:
-                if self.current_time >= (self.last_fire_time + FIRE_COOLDOWN):
-                    self.fighter_shoots()
-                    self.last_fire_time = self.current_time
-
-            elif keypress == pygame.K_ESCAPE:
+            # Note: Continuous shooting is now handled in update() method
+            
+            if keypress == pygame.K_ESCAPE:
                 # TODO: (DEBUG) skip things when [ESC] is pressed
                 if not self.is_ready:
                     self.done_starting()
@@ -158,6 +156,12 @@ class Play(State):
         self.update_timers(delta_time)
         self.update_player(delta_time, keys)
         self.update_enemies(delta_time)
+        
+        # Handle continuous shooting when spacebar is held
+        if keys[pygame.K_SPACE] and self.is_player_alive and self.can_control_player:
+            if self.current_time >= (self.last_fire_time + FIRE_COOLDOWN):
+                self.fighter_shoots()
+                self.last_fire_time = self.current_time
 
         # Less important graphical things to update
         self.update_text_sprites(delta_time)
@@ -179,8 +183,8 @@ class Play(State):
         if self.enemies:
             self.enemies.update(delta_time, self.animation_flag)
             
-            # Check if any enemies should fire
-            if player_pos:
+            # Check if any enemies should fire (only if ready, not reforming)
+            if player_pos and self.is_ready and not self.should_reform_enemies:
                 for enemy in self.enemies:
                     if enemy.should_fire(self.current_time, player_pos):
                         self.spawn_enemy_missile(enemy, player_pos)
