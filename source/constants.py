@@ -47,7 +47,12 @@ SCORE_FILE = "scores.txt"
 # Game space
 GAME_SIZE = Area(224, 288)
 GAME_CENTER = Point(GAME_SIZE.width // 2, GAME_SIZE.height // 2)
-DEFAULT_SCREEN_SIZE = GAME_SIZE
+
+# Display scaling for modern screens
+DISPLAY_SCALE = 3  # Scale factor for window size (3x = 672x864)
+SCREEN_WIDTH = GAME_SIZE.width * DISPLAY_SCALE
+SCREEN_HEIGHT = GAME_SIZE.height * DISPLAY_SCALE
+DEFAULT_SCREEN_SIZE = (SCREEN_WIDTH, SCREEN_HEIGHT)
 STAGE_TOP_Y = 30  # Y-coord. for the top of the stage
 STAGE_BOTTOM_Y = GAME_SIZE.height - 20  # Y-coord. for the bottom of the stage
 BADGE_Y = GAME_SIZE.height - 19  # Y-coord for the top of the stage badges

@@ -5,6 +5,7 @@ import pygame
 from . import constants as c
 from .states import GameOver, Demo, Title, ScoreEntry, State
 from .play import Play
+from . import setup
 
 
 class Control(object):
@@ -61,7 +62,16 @@ class Control(object):
             elif self.state.is_quit:
                 self.running = False
 
-            self.state.display(self.screen)
+            # Render to the game surface at original resolution
+            self.state.display(setup.GAME_SURFACE)
+            
+            # Scale up to the display surface
+            if c.DISPLAY_SCALE > 1:
+                scaled = pygame.transform.scale(setup.GAME_SURFACE, c.DEFAULT_SCREEN_SIZE)
+                self.screen.blit(scaled, (0, 0))
+            else:
+                self.screen.blit(setup.GAME_SURFACE, (0, 0))
+                
             pygame.display.update()
 
 

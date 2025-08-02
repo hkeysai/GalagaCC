@@ -15,7 +15,7 @@ Run `python galaga.py` in terminal after you make sure all the dependencies for 
 
 ## Dependencies
 - Python 3.8 or greater
-- [pygame](https://www.pygame.org/news) v1.9.6 
+- [pygame](https://www.pygame.org/news) v2.0 or greater (tested with v2.6.1) 
 
 ## The Game
 The point of the game is to get through as many stages as possible and get the high score.

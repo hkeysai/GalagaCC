@@ -13,11 +13,11 @@ FONT_CHAR_SIZE = 8
 START_KEYS = [pygame.K_SPACE, pygame.K_RETURN]
 
 # Setup pygame
-SCREEN = FONT = SOUNDS = GRAPHICS = None
+SCREEN = FONT = SOUNDS = GRAPHICS = GAME_SURFACE = None
 
 
 def setup_game():
-    global SCREEN, FONT, SOUNDS, GRAPHICS
+    global SCREEN, FONT, SOUNDS, GRAPHICS, GAME_SURFACE
 
     # Center the window
     os.environ['SDL_VIDEO_CENTERED'] = '1'
@@ -25,6 +25,9 @@ def setup_game():
     pygame.init()
     SCREEN = pygame.display.set_mode(c.DEFAULT_SCREEN_SIZE)
     pygame.display.set_caption(c.TITLE)
+    
+    # Create a surface at the original game resolution for rendering
+    GAME_SURFACE = pygame.Surface(c.GAME_SIZE)
 
     # Load these
     FONT = load_font()
