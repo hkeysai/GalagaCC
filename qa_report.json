@@ -1,0 +1,12 @@
+{
+  "issues": [],
+  "warnings": [],
+  "fixes_applied": [
+    "Created missing resources/__init__.py"
+  ],
+  "summary": {
+    "total_issues": 0,
+    "total_warnings": 0,
+    "total_fixes": 1
+  }
+}

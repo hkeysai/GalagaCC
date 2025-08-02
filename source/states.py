@@ -1,7 +1,6 @@
 # states.py
 
 import pygame
-from pygame.math import Vector2
 from . import constants as c, tools, setup, hud, scoring, sprites
 from .setup import play_sound, stop_sounds
 from .stars import StarField

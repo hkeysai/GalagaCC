@@ -5,6 +5,7 @@ from .setup import play_sound, stop_sounds
 from .stars import StarField
 from .tools import calc_stage_badges, draw_text
 from .states import State, draw_mid_text
+from .formation import Formation
 
 # Play state timings
 STAGE_DURATION = 1600
@@ -58,11 +59,8 @@ class Play(State):
         self.explosions = pygame.sprite.Group()
 
         # enemies and level
-        self.formation_spread: int = 0
-        self.formation_x_offset: int = 0
-        self.formation_y_offset = c.STAGE_TOP_Y + 16
-        self.the_stage = None
-        self.enemies: pygame.sprite.Group = pygame.sprite.Group()
+        self.formation = Formation()
+        self.enemies = self.formation.enemies  # Reference to formation's enemy group
 
         # timers:
         self.blocking_timer = 0  # this timer is for timing how long to show messages on screen
@@ -82,6 +80,7 @@ class Play(State):
         self.is_ready = False
         self.should_reform_enemies = False
         self.should_show_game_over = False
+        self.should_advance_stage = False
 
     def cleanup(self):
         return c.Persist(stars=self.persist.stars,
@@ -164,14 +163,34 @@ class Play(State):
         self.update_missiles(delta_time)
 
     def update_enemies(self, delta_time):
-        # update enemies
-        if self.the_stage and self.enemies:
+        # Get player position for targeting
+        player_pos = None
+        if self.player and self.is_player_alive:
+            player_pos = (self.player.x, self.player.y)
+        
+        # Update formation movement
+        self.formation.update(delta_time, player_pos)
+        
+        # Update individual enemies and check for firing
+        if self.enemies:
             self.enemies.update(delta_time, self.animation_flag)
+            
+            # Check if any enemies should fire
+            if player_pos:
+                for enemy in self.enemies:
+                    if enemy.should_fire(self.current_time, player_pos):
+                        self.spawn_enemy_missile(enemy, player_pos)
+                        enemy.fire(self.current_time)
+        
+        # Check if all enemies destroyed - advance to next stage
+        if self.is_ready and self.formation.is_empty() and not self.should_show_game_over:
+            self.advance_to_next_stage()
 
     def add_explosion(self, x, y, is_player_type=False):
         self.explosions.add(sprites.Explosion(x, y, is_player_type=is_player_type))
 
     def update_missiles(self, delta_time):
+        # Update player missiles
         for a_missile in self.missiles.sprites():
             a_missile.update(delta_time, self.animation_flag)
 
@@ -180,25 +199,73 @@ class Play(State):
                 if not enemy.is_visible:
                     continue
                 if enemy.rect.colliderect(a_missile.rect):
-                    enemy.kill()
+                    # Handle Boss Galaga special case (2 hits required)
+                    if isinstance(enemy, sprites.BossGalaga):
+                        if enemy.hit():  # Returns True if destroyed
+                            self.formation.remove_enemy(enemy)
+                            self.add_explosion(enemy.x, enemy.y)
+                            play_sound("enemy_hit_3")
+                        else:
+                            # Just damaged, not destroyed
+                            play_sound("enemy_hit_2")
+                    else:
+                        # Regular enemies die in one hit
+                        self.formation.remove_enemy(enemy)
+                        self.add_explosion(enemy.x, enemy.y)
+                        play_sound("enemy_hit_1")
+                    
+                    # Always remove the missile
                     a_missile.kill()
                     self.num_hits += 1
-                    self.add_explosion(enemy.x, enemy.y)
-                    play_sound("enemy_hit_1")
-                    points = 0
-                    if isinstance(enemy, sprites.Bee):
-                        points = 400
-                    elif isinstance(enemy, sprites.Butterfly):
-                        points = 400
-                    elif isinstance(enemy, sprites.Purple):
-                        points = 800
+                    
+                    # Award points
+                    points = enemy.get_points()
+                    if points >= 800:
+                        # Show score for high value targets
                         sprites.ScoreText(enemy.x, enemy.y, points)
                     self.score += points
                     self.high_score = max(self.score, self.high_score)
-                    if not STAGE_BOUNDS.contains(a_missile.rect):
-                        a_missile.kill()
                     break
+            
+            # Remove missiles that go off screen
+            if not STAGE_BOUNDS.contains(a_missile.rect):
+                a_missile.kill()
+        
+        # Update enemy missiles
+        for missile in self.enemy_missiles.sprites():
+            missile.update(delta_time, self.animation_flag)
+            
+            # Check collision with player
+            if self.player and self.is_player_alive:
+                if missile.rect.colliderect(self.player.rect):
+                    self.kill_player()
+                    missile.kill()
+                    break
+            
+            # Remove missiles that go off screen
+            if not STAGE_BOUNDS.contains(missile.rect):
+                missile.kill()
 
+    def spawn_enemy_missile(self, enemy, player_pos):
+        """Spawn a missile from an enemy toward the player"""
+        # Calculate direction to player
+        dx = player_pos[0] - enemy.x
+        dy = player_pos[1] - enemy.y
+        distance = (dx**2 + dy**2)**0.5
+        
+        if distance > 0:
+            # Normalize direction and set velocity
+            missile_speed = 0.15
+            vx = (dx / distance) * missile_speed
+            vy = (dy / distance) * missile_speed
+            
+            # Create missile
+            missile = sprites.Missile(enemy.x, enemy.y, Vector2(vx, vy), is_enemy=True)
+            self.enemy_missiles.add(missile)
+            
+            # Play sound
+            play_sound("enemy_fire")
+    
     def kill_player(self):
         if self.player is None or not self.is_player_alive:
             return
@@ -244,6 +311,13 @@ class Play(State):
             self.blocking_timer += delta_time
             if self.blocking_timer >= GAME_OVER_DURATION:
                 self.done_showing_game_over()
+        elif self.should_advance_stage:
+            self.blocking_timer += delta_time
+            if self.blocking_timer >= STAGE_DURATION:
+                self.should_advance_stage = False
+                self.blocking_timer = 0
+                self.next_stage()
+                self.should_show_stage = True
 
         # The separate timer for synchronized animation of some things
         self.animation_beat_timer += delta_time
@@ -284,7 +358,10 @@ class Play(State):
     def next_stage(self):
         self.stage_num += 1
 
-        # TODO: add enemies
+        # Create enemy formation for this stage
+        self.formation.create_stage_formation(self.stage_num)
+        self.formation.set_difficulty(self.stage_num)
+        self.should_spawn_enemies = True
 
         self.update_stage_badges()
         self.start_animating_stage_badges()
@@ -292,6 +369,17 @@ class Play(State):
     def start_animating_stage_badges(self):
         self.is_animating_stage_badges = True
         self.stage_badge_animation_step = 0
+        
+    def advance_to_next_stage(self):
+        """Called when all enemies are destroyed"""
+        self.is_ready = False
+        self.blocking_timer = 0  # Will be incremented by update_timers
+        play_sound("stage_award")
+        # Clear any remaining missiles
+        self.missiles.empty()
+        self.enemy_missiles.empty()
+        # After delay, start next stage
+        self.should_advance_stage = True
 
     def update_stage_badges(self):
         self.stage_badges = tools.calc_stage_badges(self.stage_num)
@@ -318,15 +406,17 @@ class Play(State):
         screen.fill(c.BLACK)
         # stars
         self.persist.stars.display(screen)
-        if self.the_stage:
-            # draw enemies
-            for enemy in self.enemies:
-                enemy.display(screen)
+        # draw enemies
+        for enemy in self.enemies:
+            enemy.display(screen)
         # draw player
         if self.is_player_alive:
             self.player.display(screen)
         # draw bullets
         for m in self.missiles:
+            m.display(screen)
+        # draw enemy missiles
+        for m in self.enemy_missiles:
             m.display(screen)
         # draw explosions
         for x in self.explosions:

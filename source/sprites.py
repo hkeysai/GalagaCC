@@ -73,23 +73,241 @@ class Player(GalagaSprite):
 
 
 class Enemy(GalagaSprite):
+    """Base class for all enemy types in Galaga"""
+    
+    def __init__(self, x, y, width, height):
+        super(Enemy, self).__init__(x, y, width, height)
+        self.enemy_type = "base"
+        self.points_in_formation = 0
+        self.points_while_attacking = 0
+        self.is_attacking = False
+        self.formation_pos = None  # (row, col) in formation
+        self.current_frame = 0
+        self.animation_timer = 0
+        
+        # Pattern following
+        self.is_entering = False
+        self.entrance_path = []
+        self.path_index = 0
+        self.attack_path = []
+        self.path_speed = 2.0  # Pixels per frame
+        
+        # Firing mechanics
+        self.can_fire = True
+        self.last_fire_time = 0
+        self.fire_cooldown = 1500  # Milliseconds between shots
+        
+    def get_points(self):
+        """Return points based on current state"""
+        return self.points_while_attacking if self.is_attacking else self.points_in_formation
+        
+    def update(self, delta_time: int, animation_flag: bool):
+        """Update enemy state and animation"""
+        # Handle pattern following
+        if self.is_entering and self.entrance_path:
+            self._follow_entrance_path()
+        elif self.is_attacking and self.attack_path:
+            self._follow_attack_path()
+            
+        # Update animation
+        if animation_flag:
+            self.current_frame = (self.current_frame + 1) % len(self.frames)
+            self._update_image()
+    
+    def _follow_entrance_path(self):
+        """Follow the entrance path"""
+        if self.path_index < len(self.entrance_path):
+            target_x, target_y = self.entrance_path[self.path_index]
+            
+            # Move toward target position
+            dx = target_x - self.x
+            dy = target_y - self.y
+            distance = (dx**2 + dy**2)**0.5
+            
+            if distance < self.path_speed:
+                # Reached this point, move to next
+                self.x = target_x
+                self.y = target_y
+                self.path_index += 1
+            else:
+                # Move toward target
+                self.x += int(dx / distance * self.path_speed)
+                self.y += int(dy / distance * self.path_speed)
+        else:
+            # Finished entrance, join formation
+            self.is_entering = False
+            self.path_index = 0
+    
+    def _follow_attack_path(self):
+        """Follow the attack path"""
+        if self.path_index < len(self.attack_path):
+            target_x, target_y = self.attack_path[self.path_index]
+            
+            # Move toward target position
+            dx = target_x - self.x
+            dy = target_y - self.y
+            distance = (dx**2 + dy**2)**0.5
+            
+            if distance < self.path_speed:
+                # Reached this point, move to next
+                self.x = target_x
+                self.y = target_y
+                self.path_index += 1
+            else:
+                # Move toward target
+                self.x += int(dx / distance * self.path_speed)
+                self.y += int(dy / distance * self.path_speed)
+        else:
+            # Finished attack, return to formation
+            self.is_attacking = False
+            self.path_index = 0
+    
+    def set_entrance_path(self, path):
+        """Set the entrance path for this enemy"""
+        self.entrance_path = path
+        self.is_entering = True
+        self.path_index = 0
+        if path:
+            # Start at first position
+            self.x, self.y = path[0]
+    
+    def start_attack(self, path):
+        """Start an attack with the given path"""
+        self.attack_path = path
+        self.is_attacking = True
+        self.path_index = 0
+    
+    def should_fire(self, current_time, player_pos):
+        """Check if enemy should fire at player"""
+        if not self.can_fire or not self.is_attacking:
+            return False
+            
+        # Check cooldown
+        if current_time - self.last_fire_time < self.fire_cooldown:
+            return False
+            
+        # Only fire when diving toward player
+        if self.y < player_pos[1] - 50:  # Enemy is above player
+            return True
+            
+        return False
+    
+    def fire(self, current_time):
+        """Fire a missile (to be implemented by Play state)"""
+        self.last_fire_time = current_time
+    
+    def _update_image(self):
+        """Update the sprite image based on current frame"""
+        if hasattr(self, 'frames') and self.frames:
+            x, y, w, h = self.frames[self.current_frame]
+            self.image = grab_sheet(x, y, w, h)
 
-    FRAMES = {
-            'test': [(96, 32, 16, 16)],
-            }
 
-    def __init__(self, x, y, enemy_type):
-        super(Enemy, self).__init__(x, y, 16, 16)
-        self.enemy_type = enemy_type
+class Zako(Enemy):
+    """Bee-like enemy - most common type"""
+    
+    # Sprite sheet coordinates for Zako frames
+    BLUE_FRAMES = [
+        (80, 80, 16, 16),   # Frame 1
+        (96, 80, 16, 16)    # Frame 2
+    ]
+    
+    YELLOW_FRAMES = [
+        (112, 80, 16, 16),  # Frame 1
+        (128, 80, 16, 16)   # Frame 2
+    ]
+    
+    def __init__(self, x, y, variant='blue'):
+        super(Zako, self).__init__(x, y, 16, 16)
+        self.enemy_type = "zako"
+        self.variant = variant
+        self.points_in_formation = 50
+        self.points_while_attacking = 100
+        self.fire_cooldown = 2000  # Zakos fire less frequently
+        
+        # Set frames based on variant
+        self.frames = self.BLUE_FRAMES if variant == 'blue' else self.YELLOW_FRAMES
+        self._update_image()
 
-    def get_frame (self):
-        return 0
 
-    def display(self, surface: pygame.Surface):
-        frame_num = get_frame()
-        x, y, w, h = self.FRAMES[self.enemy_type][frame_num]
-        self.image = grab_sheet(x, y, w, h)
-        super(Enemy, self).display(surface)
+class Goei(Enemy):
+    """Butterfly-like enemy - escorts for Boss Galaga"""
+    
+    # Sprite sheet coordinates for Goei frames
+    RED_FRAMES = [
+        (80, 96, 16, 16),   # Frame 1
+        (96, 96, 16, 16)    # Frame 2
+    ]
+    
+    WHITE_FRAMES = [
+        (144, 80, 16, 16),  # Frame 1
+        (160, 80, 16, 16)   # Frame 2
+    ]
+    
+    def __init__(self, x, y, variant='red'):
+        super(Goei, self).__init__(x, y, 16, 16)
+        self.enemy_type = "goei"
+        self.variant = variant
+        self.points_in_formation = 80
+        self.points_while_attacking = 160
+        self.is_escort = False  # True when escorting Boss Galaga
+        self.fire_cooldown = 1500  # Goei fire more frequently than Zako
+        
+        # Set frames based on variant
+        self.frames = self.RED_FRAMES if variant == 'red' else self.WHITE_FRAMES
+        self._update_image()
+
+
+class BossGalaga(Enemy):
+    """Large enemy that can capture player's ship"""
+    
+    # Sprite sheet coordinates for Boss Galaga frames
+    GREEN_FRAMES = [
+        (112, 96, 16, 16),  # Frame 1
+        (128, 96, 16, 16)   # Frame 2
+    ]
+    
+    PURPLE_FRAMES = [
+        (144, 96, 16, 16),  # Frame 1 (after being hit once)
+        (160, 96, 16, 16)   # Frame 2
+    ]
+    
+    def __init__(self, x, y):
+        super(BossGalaga, self).__init__(x, y, 16, 16)
+        self.enemy_type = "boss_galaga"
+        self.points_in_formation = 150
+        self.points_while_attacking = 400  # Base points, modified by escorts
+        self.hits_remaining = 2
+        self.has_captured_fighter = False
+        self.captured_fighter = None
+        self.escort_count = 0
+        self.can_fire = False  # Boss Galagas don't fire missiles, they use tractor beam
+        
+        # Start with green frames
+        self.frames = self.GREEN_FRAMES
+        self._update_image()
+    
+    def hit(self):
+        """Handle being hit by player missile"""
+        self.hits_remaining -= 1
+        if self.hits_remaining == 1:
+            # Change to purple after first hit
+            self.frames = self.PURPLE_FRAMES
+            self._update_image()
+        return self.hits_remaining <= 0
+    
+    def get_points(self):
+        """Calculate points based on escort count"""
+        if not self.is_attacking:
+            return self.points_in_formation
+        
+        # Points increase with escort count
+        base_points = 400
+        if self.escort_count == 1:
+            return 800
+        elif self.escort_count == 2:
+            return 1600
+        return base_points
 
 
 class Missile(GalagaSprite):
