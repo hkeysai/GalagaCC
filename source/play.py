@@ -131,7 +131,11 @@ class Play(State):
     def play_intro_music(self):
         # Make the game play the intro music and wait
         stop_sounds()
-        setup.get_sfx("theme").play()
+        theme_sound = setup.get_sfx("theme")
+        if theme_sound:
+            theme_sound.play()
+        else:
+            print("WARNING: theme.ogg not found or failed to load")
         self.has_started_intro_music = True
 
     def animate_stage_badges(self, delta_time):
@@ -184,7 +188,9 @@ class Play(State):
         
         # Check if all enemies destroyed - advance to next stage
         if self.is_ready and self.formation.is_empty() and not self.should_show_game_over:
-            self.advance_to_next_stage()
+            # Add safety check to prevent crash during stage transition
+            if not self.should_advance_stage:  # Prevent double-triggering
+                self.advance_to_next_stage()
 
     def add_explosion(self, x, y, is_player_type=False):
         self.explosions.add(sprites.Explosion(x, y, is_player_type=is_player_type))

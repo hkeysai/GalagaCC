@@ -23,6 +23,10 @@ def setup_game():
     os.environ['SDL_VIDEO_CENTERED'] = '1'
 
     pygame.init()
+    
+    # Initialize mixer with specific parameters to avoid issues
+    pygame.mixer.init(frequency=22050, size=-16, channels=2, buffer=512)
+    
     SCREEN = pygame.display.set_mode(c.DEFAULT_SCREEN_SIZE)
     pygame.display.set_caption(c.TITLE)
     
@@ -53,10 +57,22 @@ def load_all_gfx(directory, accept=('.png', '.bmp', '.gif'), color_key=pygame.Co
 def load_all_sfx(directory, accept=(".ogg", ".wav")) -> dict:
     accept_all = len(accept) == 0
     effects = {}
+    
+    if not os.path.exists(directory):
+        print(f"ERROR: Audio directory not found: {directory}")
+        return effects
+        
     for filename in os.listdir(directory):
         name, ext = os.path.splitext(filename)
         if accept_all or ext.lower() in accept:
-            effects[name] = pygame.mixer.Sound(os.path.join(directory, filename))
+            filepath = os.path.join(directory, filename)
+            try:
+                effects[name] = pygame.mixer.Sound(filepath)
+                print(f"Loaded sound: {name}")
+            except Exception as e:
+                print(f"ERROR loading sound {filename}: {e}")
+                
+    print(f"Total sounds loaded: {len(effects)}")
     return effects
 
 
@@ -110,7 +126,14 @@ def has_char_in_font(character: str) -> bool:
 
 
 def play_sound(sound_name):
-    SOUNDS.get(sound_name).play()
+    sound = SOUNDS.get(sound_name)
+    if sound:
+        try:
+            sound.play()
+        except Exception as e:
+            print(f"Error playing sound '{sound_name}': {e}")
+    else:
+        print(f"Warning: Sound '{sound_name}' not found")
 
 
 def stop_sounds():

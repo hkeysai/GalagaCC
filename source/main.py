@@ -45,9 +45,15 @@ class Control(object):
         return pressed_keys
 
     def main_loop(self):
+        frame_count = 0
         while self.running:
             # TODO: fix huge delta times when the window gets unfocused or something (if possible?)
             delta_time = self.clock.tick(self.fps)
+            
+            # Safety check for runaway delta times
+            if delta_time > 1000:  # More than 1 second
+                delta_time = 33  # Force to ~30fps equivalent
+                print(f"WARNING: Large delta time detected: {delta_time}ms, clamping to 33ms")
 
             # Poll events and get the pressed keys from pygame
             pressed_keys = self.poll_events()
@@ -73,6 +79,9 @@ class Control(object):
                 self.screen.blit(setup.GAME_SURFACE, (0, 0))
                 
             pygame.display.update()
+            
+            # Pump events to keep macOS happy
+            pygame.event.pump()
 
 
 def main():
