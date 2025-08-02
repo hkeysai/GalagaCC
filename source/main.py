@@ -68,17 +68,12 @@ class Control(object):
             elif self.state.is_quit:
                 self.running = False
 
-            # Render to the game surface at original resolution
+            # Render to game surface at original resolution
             self.state.display(setup.GAME_SURFACE)
             
-            # Scale up to the display surface
-            if c.DISPLAY_SCALE > 1:
-                scaled = pygame.transform.scale(setup.GAME_SURFACE, c.DEFAULT_SCREEN_SIZE)
-                self.screen.blit(scaled, (0, 0))
-            else:
-                self.screen.blit(setup.GAME_SURFACE, (0, 0))
-                
-            pygame.display.update()
+            # Scale the game surface to the screen
+            pygame.transform.scale(setup.GAME_SURFACE, c.DEFAULT_SCREEN_SIZE, self.screen)
+            pygame.display.flip()
             
             # Pump events to keep macOS happy
             pygame.event.pump()

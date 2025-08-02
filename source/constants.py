@@ -49,7 +49,7 @@ GAME_SIZE = Area(224, 288)
 GAME_CENTER = Point(GAME_SIZE.width // 2, GAME_SIZE.height // 2)
 
 # Display scaling for modern screens
-DISPLAY_SCALE = 3  # Scale factor for window size (3x = 672x864)
+DISPLAY_SCALE = 2  # Scale factor for window size (2x = 448x576)
 SCREEN_WIDTH = GAME_SIZE.width * DISPLAY_SCALE
 SCREEN_HEIGHT = GAME_SIZE.height * DISPLAY_SCALE
 DEFAULT_SCREEN_SIZE = (SCREEN_WIDTH, SCREEN_HEIGHT)
