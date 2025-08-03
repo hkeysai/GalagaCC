@@ -6,6 +6,8 @@ from .stars import StarField
 from .tools import calc_stage_badges, draw_text
 from .states import State, draw_mid_text
 from .formation import Formation
+from .challenging_stage import ChallengingStage
+from .score_database import score_db
 
 # Play state timings
 STAGE_DURATION = 1600
@@ -33,7 +35,7 @@ class Play(State):
         # Score
         self.score = 0
         self.one_up_score = self.persist.one_up_score
-        self.high_score = self.persist.high_score
+        self.high_score = max(self.persist.high_score, score_db.get_high_score())
 
         # init player
         self.is_player_alive = False
@@ -82,8 +84,19 @@ class Play(State):
         self.should_reform_enemies = False
         self.should_show_game_over = False
         self.should_advance_stage = False
+        
+        # Challenging stage tracking
+        self.is_challenging_stage = False
+        self.challenging_stage_hits = 0
+        self.challenging_stage_total = 40
+        self.challenging_stage_waves = []
+        self.challenging_stage_timer = 0
 
     def cleanup(self):
+        # Check if score qualifies for high score list
+        if score_db.is_high_score(self.score):
+            # Will need to transition to score entry state
+            pass
         return c.Persist(stars=self.persist.stars,
                          scores=self.persist.scores,
                          current_score=self.score,
@@ -235,6 +248,8 @@ class Play(State):
                         sprites.ScoreText(enemy.x, enemy.y, points)
                     self.score += points
                     self.high_score = max(self.score, self.high_score)
+                    # Update score database
+                    score_db.update_session_high(self.score)
                     break
             
             # Remove missiles that go off screen
@@ -367,11 +382,22 @@ class Play(State):
 
     def next_stage(self):
         self.stage_num += 1
-
-        # Create enemy formation for this stage
-        self.formation.create_stage_formation(self.stage_num)
-        self.formation.set_difficulty(self.stage_num)
-        self.should_spawn_enemies = True
+        
+        # Check if this is a challenging stage
+        self.is_challenging_stage = ChallengingStage.is_challenging_stage(self.stage_num)
+        
+        if self.is_challenging_stage:
+            # Setup challenging stage
+            self.challenging_stage_hits = 0
+            self.challenging_stage_waves = ChallengingStage.get_challenging_stage_waves(self.stage_num)
+            self.challenging_stage_timer = 0
+            # Clear formation for challenging stage
+            self.formation.clear()
+        else:
+            # Create normal enemy formation for this stage
+            self.formation.create_stage_formation(self.stage_num)
+            self.formation.set_difficulty(self.stage_num)
+            self.should_spawn_enemies = True
 
         self.update_stage_badges()
         self.start_animating_stage_badges()
@@ -436,7 +462,7 @@ class Play(State):
             ts.display(screen)
         # draw HUD
         self.show_state(screen)
-        hud.display(screen, one_up_score=self.persist.one_up_score, high_score=self.persist.high_score,
+        hud.display(screen, one_up_score=self.score, high_score=self.high_score,
                     offset_y=0, num_extra_lives=self.extra_lives, stage_badges=self.stage_badges,
                     stage_badge_animation_step=self.stage_badge_animation_step, show_1up=self.show_1up_text)
 

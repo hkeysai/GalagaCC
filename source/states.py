@@ -5,6 +5,7 @@ from . import constants as c, tools, setup, hud, scoring, sprites
 from .setup import play_sound, stop_sounds
 from .stars import StarField
 from .tools import calc_stage_badges, draw_text
+from .score_database import score_db
 
 GAME_OVER_DURATION = 3000
 
@@ -64,8 +65,10 @@ class Title(State):
     def __init__(self, persist):
         # initialize the persistent data because it is the initial state
         if persist is None:
-            scores = scoring.load_scores()
-            high_score = max(scores, key=lambda record: record.score).score
+            # Load scores from database
+            db_scores = score_db.get_scores()
+            scores = [scoring.ScoreRecord(s['name'], s['score']) for s in db_scores]
+            high_score = score_db.get_high_score()
             persist = c.Persist(stars=StarField(),
                                 scores=scores,
                                 current_score=0,
@@ -191,7 +194,7 @@ class GameOver(State):
         draw_text(surface=screen, text=c.HIT_MISS_RATIO.format(self.ratio),
                   position=(x, y + 48), color=c.YELLOW)
 
-        hud.display(screen, one_up_score=self.persist.one_up_score, high_score=self.persist.high_score,
+        hud.display(screen, one_up_score=self.persist.current_score, high_score=self.persist.high_score,
                     stage_badges=self.stage_badges, stage_badge_animation_step=sum(self.stage_badges))
 
 
