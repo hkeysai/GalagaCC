@@ -3,6 +3,7 @@ import math
 from . import constants as c
 from .sprites import Zako, Goei, BossGalaga
 from .patterns import PatternEngine
+from .stage_patterns import StagePatterns
 
 
 class Formation:
@@ -50,70 +51,53 @@ class Formation:
         # Clear existing formation
         self.clear()
         
-        # Determine entrance pattern for this stage
-        pattern_type = self.pattern_engine.get_entrance_pattern(stage_num)
+        # Use specific patterns for stages 1 and 2, then cycle
+        if stage_num == 1:
+            groups = StagePatterns.get_stage_1_groups()
+        elif stage_num == 2:
+            groups = StagePatterns.get_stage_2_groups()
+        else:
+            # Stages repeat patterns with increased difficulty
+            # Stage 3 is challenging stage, so stage 4 uses stage 1 pattern, etc.
+            effective_stage = ((stage_num - 4) % 10) + 1
+            if effective_stage == 1 or (stage_num - 1) % 10 == 0:
+                groups = StagePatterns.get_stage_1_groups()
+            else:
+                groups = StagePatterns.get_stage_2_groups()
         
-        # Create spawn list with delays
+        # Create spawn list from groups
         spawn_list = []
-        enemy_index = 0
         
-        # Row 0 (top): Boss Galagas in center positions
-        boss_positions = [3, 4, 5, 6]  # Center 4 columns
-        for col in boss_positions:
-            boss = BossGalaga(0, 0)  # Start off-screen
-            boss.formation_pos = (0, col)
+        for group in groups:
+            group_delay = group['delay']
             
-            # Create entrance path
-            path = self.pattern_engine.create_entrance_path(pattern_type, enemy_index, (0, col))
-            
-            spawn_list.append({
-                'enemy': boss,
-                'path': path,
-                'delay': enemy_index * 100,  # Stagger spawns
-                'row': 0,
-                'col': col
-            })
-            enemy_index += 1
-        
-        # Rows 1-2: Goei (butterflies)
-        for row in range(1, 3):
-            for col in range(self.COLS):
-                # Alternate between red and white variants
-                variant = 'red' if (row + col) % 2 == 0 else 'white'
-                goei = Goei(0, 0, variant)
-                goei.formation_pos = (row, col)
+            for idx, enemy_data in enumerate(group['enemies']):
+                # Create enemy based on type
+                if enemy_data['type'] == 'zako':
+                    variant = 'yellow' if stage_num > 5 else 'blue'
+                    enemy = Zako(0, 0, variant)
+                elif enemy_data['type'] == 'goei':
+                    variant = 'red' if (enemy_data['row'] + enemy_data['col']) % 2 == 0 else 'white'
+                    enemy = Goei(0, 0, variant)
+                elif enemy_data['type'] == 'boss_galaga':
+                    enemy = BossGalaga(0, 0)
+                
+                enemy.formation_pos = (enemy_data['row'], enemy_data['col'])
                 
                 # Create entrance path
-                path = self.pattern_engine.create_entrance_path(pattern_type, enemy_index, (row, col))
+                path = StagePatterns.create_entrance_path(
+                    group['pattern'], 
+                    idx, 
+                    (enemy_data['row'], enemy_data['col'])
+                )
                 
                 spawn_list.append({
-                    'enemy': goei,
+                    'enemy': enemy,
                     'path': path,
-                    'delay': enemy_index * 50,  # Faster spawn for regular enemies
-                    'row': row,
-                    'col': col
+                    'delay': group_delay + idx * 50,  # Stagger within group
+                    'row': enemy_data['row'],
+                    'col': enemy_data['col']
                 })
-                enemy_index += 1
-        
-        # Rows 3-4: Zako (bees)
-        for row in range(3, 5):
-            for col in range(self.COLS):
-                # Use yellow variant for higher stages
-                variant = 'yellow' if stage_num > 5 else 'blue'
-                zako = Zako(0, 0, variant)
-                zako.formation_pos = (row, col)
-                
-                # Create entrance path
-                path = self.pattern_engine.create_entrance_path(pattern_type, enemy_index, (row, col))
-                
-                spawn_list.append({
-                    'enemy': zako,
-                    'path': path,
-                    'delay': enemy_index * 50,
-                    'row': row,
-                    'col': col
-                })
-                enemy_index += 1
         
         # Set up spawning
         self.enemies_to_spawn = spawn_list
