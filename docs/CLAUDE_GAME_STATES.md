@@ -2,6 +2,12 @@
 
 This file provides guidance to Claude Code for the game state system in Galaga.
 
+## Recent Updates
+- Added continuous shooting when holding spacebar
+- Implemented enemy firing pause when player dies
+- Added challenging stage support
+- Fixed GAME_OVER_DURATION constant (3000ms)
+
 ## State Architecture
 
 ### Base State Class
@@ -50,6 +56,8 @@ Sub-states managed by flags:
 - `should_show_ready`: Shows "READY"
 - `is_ready`: Gameplay active
 - `should_show_game_over`: Shows "GAME OVER"
+- `is_challenging_stage`: Bonus round active
+- `should_reform_enemies`: Pauses enemy attacks after player death
 
 Transitions to:
 - GAME_OVER_STATE: When game ends
@@ -134,7 +142,13 @@ Fields:
 1. Check blocking states (messages)
 2. Update timers
 3. Update game objects (if not blocked)
-4. Check state transitions
+4. Handle continuous shooting (spacebar held)
+5. Check state transitions
+
+### Input Handling Changes
+- Shooting moved from `get_event()` to `update()` for continuous fire
+- Check `keys[pygame.K_SPACE]` every frame when player alive
+- Respects `FIRE_COOLDOWN` (200ms) between shots
 
 ### Display Layers (bottom to top)
 1. Black background
@@ -147,6 +161,21 @@ Fields:
 8. Score text sprites
 9. HUD (scores, lives, badges)
 10. State messages (START, READY, etc.)
+
+## Challenging Stage Pattern
+
+### Detection
+```python
+ChallengingStage.is_challenging_stage(stage_num)
+# Returns True for stages 3, 7, 11, 15...
+```
+
+### Special Rules
+- No enemy firing (`is_ready` check prevents it)
+- No tractor beams
+- 40 enemies in 5 waves
+- Perfect bonus: 10,000 points
+- Simplified scoring (100/200 points)
 
 ## Common State Patterns
 

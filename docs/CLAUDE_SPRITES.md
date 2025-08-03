@@ -2,6 +2,11 @@
 
 This file provides guidance to Claude Code for the sprite system in Galaga.
 
+## Recent Updates
+- Implemented continuous shooting when holding spacebar
+- Added enemy firing pause when player dies
+- Boss Galaga now requires 2 hits to destroy
+
 ## Sprite Architecture
 
 ### Base Class: GalagaSprite
@@ -53,6 +58,8 @@ Key properties:
 - Large enemies, top formation row
 - Points: 150 (formation) / 400-1600 (based on escorts)
 - Takes 2 hits: green → purple → destroyed
+  - Implemented with `hits_remaining` counter
+  - Color changes on first hit
 - Cannot fire missiles (uses tractor beam)
 - Tracks captured fighters
 

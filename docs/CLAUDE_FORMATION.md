@@ -2,12 +2,18 @@
 
 This file provides guidance to Claude Code for the enemy formation system in Galaga.
 
+## Recent Updates
+- Added stage-specific entrance patterns based on STAGES.MD documentation
+- Implemented Stage 1 and Stage 2 unique entrance groups
+- Added challenging stage support (stages 3, 7, 11, etc.)
+- Patterns now cycle with increased difficulty after stage 2
+
 ## Formation Architecture
 
-### Core Class: Formation
-Location: `source/formation.py:8`
-
-Manages the 10x5 enemy grid and coordinated movements.
+### Core Classes
+1. **Formation** (`source/formation.py:8`) - Manages the 10x5 enemy grid
+2. **StagePatterns** (`source/stage_patterns.py`) - Stage-specific entrance patterns
+3. **ChallengingStage** (`source/challenging_stage.py`) - Bonus round patterns
 
 ## Grid Layout
 
@@ -43,20 +49,31 @@ get_position(row, col) -> (x, y)
 
 ## Entrance System
 
-### Pattern Types
-1. `PATTERN_LEFT_SWEEP` (0): Enemies enter from left with arc motion
-2. `PATTERN_RIGHT_SWEEP` (1): Enemies enter from right with arc motion  
-3. `PATTERN_TOP_CASCADE` (2): Enemies cascade from top with sine wave
+### Stage 1 Groups (source/stage_patterns.py)
+1. **Group 1**: Boss & Escorts (Left) - Clockwise loop from top-left
+2. **Group 2**: Boss & Escorts (Right) - Counter-clockwise from top-right
+3. **Group 3**: Bee Squadron (Left) - Enter top-left, bank right
+4. **Group 4**: Bee Squadron (Right) - Enter top-right, bank left
+5. **Group 5**: Butterfly Squadron - Single file loop from left
+6. **Group 6**: Final Bosses - Pairs from top center
+
+### Stage 2 Groups
+1. **Group 1**: Bee Squadron - Enter from bottom-left, fly up edge
+2. **Group 2**: Bee Squadron - Enter from bottom-right, fly up edge
+3. **Group 3**: Butterfly Squadron - Top-left with sharp loop
+4. **Group 4**: Butterfly Squadron - Top-right with sharp loop
+5. **Group 5**: The Bosses - Single file from top, split into pairs
+
+### Stage Cycling
+- Stages 1-2: Unique patterns
+- Stage 3: Challenging stage (bonus)
+- Stage 4+: Cycle patterns with increased difficulty
+- Pattern formula: `((stage_num - 4) % 10) + 1`
 
 ### Spawn Timing
-- Boss Galagas: 100ms delay between spawns
-- Regular enemies: 50ms delay between spawns
+- Group-based delays (0-2500ms)
+- Within-group stagger: 50ms between enemies
 - Managed through `enemies_to_spawn` queue
-
-### Stage Pattern Selection
-```python
-pattern_type = (stage_num - 1) % 3
-```
 
 ## Attack System
 
@@ -125,9 +142,31 @@ Adjusts two parameters:
 - Assigns paths via `set_entrance_path()`/`start_attack()`
 - Updates positions only for idle enemies
 
+## Challenging Stages
+
+### Stage Numbers
+- First: Stage 3
+- Pattern: Every 4 stages (3, 7, 11, 15...)
+- Formula: `stage_num == 3 or (stage_num - 3) % 4 == 0`
+
+### Wave Structure (40 enemies total)
+1. **Wave 1**: Left-Side Weave (8 enemies)
+2. **Wave 2**: Right-Side Weave (8 enemies)
+3. **Wave 3**: Center Loop Left (4 enemies)
+4. **Wave 4**: Center Loop Right (4 enemies)
+5. **Wave 5**: Boss Escort Columns (8 enemies)
+
+### Special Rules
+- No enemy firing
+- No tractor beams
+- No player collision
+- Perfect bonus: 10,000 points for all 40 destroyed
+- Fixed point values: 100 (Bee/Butterfly), 200 (Boss)
+
 ## Common Issues & Solutions
 
 1. **Enemies stuck entering**: Check `enemies_to_spawn` cleared properly
 2. **No attacks**: Verify `attack_timer` incrementing after spawns complete
 3. **Formation drift**: Ensure `cycle_time` not reset inadvertently
 4. **Escort selection**: Confirm Goei in correct rows (1-2) for Boss escorts
+5. **Stage patterns wrong**: Verify stage cycling formula accounts for challenging stages
